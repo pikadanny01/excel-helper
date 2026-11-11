@@ -8,7 +8,7 @@
 
   const STOP = new Set(['이거','이걸','그거','이것','저것','이런','그런','어떻게','어케','어떤','무엇','뭐','좀','그냥','방법','알려줘','알려주세요','알려','할까','하나요','하려면','하면','할수','하는','하기','해요','해주세요','싶어','되나요','되게','엑셀','excel','셀에서','제가','시트에서','데이터에서','것을','있는','이랑','저거','거를','거랑','이거랑','그걸','할때','하는법','하는방법','거','좀요','무슨','싶은데','가능','화면','표를','값을','거야','해','법']);
   const GROUPS = [
-    ['합계','합산','총합','총계','덧셈','더하기','더하','더해','플러스','합치기','sum'],
+    ['합계','합산','총합','총계','덧셈','더하기','더하','더해','더할','더하려','더한','플러스','합치기','sum'],
     ['빼기','빼','빼면','차액','차감','뺄셈','마이너스'],
     ['곱하기','곱셈','곱해','곱하','곱','乘','multiply'],
     ['나누기','나눗셈','나누','인당','일인당'],
@@ -77,9 +77,9 @@
     const hints=[];
     const add=id=>{if(!hints.includes(id))hints.push(id);};
     const wantMerge=has('합치','합쳐','붙이','붙여','이어','연결','결합','하나로','한칸으로','합쳐서');
-    const textWords=has('글자','문자','문자열','텍스트','이름','성명','성 과 이름','성하고 이름','단어','전화번호','단어들');
+    const textWords=has('띄어쓰기','공백 넣어','스페이스','글자','문자','문자열','텍스트','이름','성명','성 과 이름','성하고 이름','단어','전화번호','단어들');
     const cellMerge=has('셀병합','셀 병합','칸 병합','병합하고','셀을 병합','병합해서','병합하고 가운데','셀두개합','셀 두 개 합','두셀합','셀 합치','칸 합치');
-    const numbers=has('더하기','더하','더해','덧셈','플러스','합산','합계','총합');
+    const numbers=has('더하기','더하','더해','더할','더하려','더한','덧셈','플러스','합산','합계','총합') || (/\$?[a-z]{1,3}\$?\d+\s*[:~]\s*\$?[a-z]{1,3}\$?\d+/i.test(question) && has('더','합산','합계')); 
     const range=/\$?[A-Z]{1,3}\$?\d+\s*(?:[:~]|부터|에서)\s*\$?[A-Z]{1,3}\$?\d+/i.test(question)||has('까지','범위','전체','모든','전부','여러','총액');
     const vague=(sq.length<17 && /^(이거|이걸|저거|이런|그런|이것)/.test(sq) && !has('더하','더해','합','찾','빼','곱','나누','평균','색','날짜','글자','숫자','병합','정렬','인쇄','원','중복'))
        || /^(이걸|이거|이런거|저걸)(이런식으로|어떻게)(나타내|나타낼|표시|해|할)/.test(sq);
@@ -139,6 +139,41 @@
     if(has('고정','스크롤') && has('첫째행','첫행','첫 행','제목행','행고정','틀고정'))add('g090');
     if(has('가로로','세로로') && has('바꾸','뒤집','전환','변경'))add('g048');
     if(has('같은 사람','이름별','사람별') && has('지출','금액','매출') && has('합계','총합'))add('g130');
+    // 명확한 실무 맥락은 일반 연관어보다 우선 적용한다. 잘못된 고확신 답변 방지.
+    const hasThreshold=/\d+(?:\.\d+)?\s*(?:점|회|번|세|살|%)?\s*(이상|초과|이하|미만)/.test(sq);
+    const byBirth=/(?:19|20)\d{2}\s*년생/.test(sq);
+    const attendance=has('참여','참석','참가','출석','미참여','불참','미출석');
+    const genderExplicit=/(?:^|[^가-힣])(남자|여자|남성|여성)(?=$|[가-힣\s])/u.test(s);
+    const countWord=has('횟수','몇회','몇번','회이상','회이하','회미만','회초과','번이상','번이하','번미만');
+    const monthQuestion=/(?:19|20)\d{2}\s*년\s*(?:0?[1-9]|1[0-2])\s*월/.test(s);
+    // 지원하지 않는 다중 조건을 일부만 적용하는 잘못된 답변은 제공하지 않는다.
+    // 필요 조건이 여러 유형에 걸치면 사용자에게 조건을 분리해 입력하도록 안내.
+    const complexYear=/(?:19|20)\d{2}\s*년/.test(s);
+    if ((genderExplicit && byBirth && attendance) || (monthQuestion && hasThreshold && countWord) || (genderExplicit && complexYear && hasThreshold && countWord && !byBirth)) {
+      return {hints:[],refs,vague:false,ambiguous:false,unsupported:true};
+    }
+    const overrides=[];
+    const prefer=id=>{if(!overrides.includes(id))overrides.push(id);};
+    if (byBirth && attendance && hasThreshold && countWord) prefer('g154');
+    else if (genderExplicit && attendance && hasThreshold && countWord) prefer('g151');
+    else if (monthQuestion && attendance) prefer('g152');
+    if (has('sumifs') && has('sumif') && has('차이','비교','다른점','달라','차이점'))prefer('g153');
+    if ((has('띄어쓰기','공백넣','띄어쓰기해서') && wantMerge) || (has('문자','글자','성명','이름') && has('붙여','합쳐','연결','결합') && !has('나누','분리'))) prefer('g051');
+    if (has('텍스트나누','텍스트 나누','문자열나누','문자를나누','문자를 나누','내용나누','문자분리','문자 분리','글자나누','구분자로 나누') || (has('나누','분리')&&has('문자','텍스트','글자','연결된'))) prefer('g084');
+    if (has('중복') && has('이름','명단') && has('뽑아','추출','목록','중복된사람만','중복된 사람만') && !has('색','강조','삭제','제거'))prefer('g135');
+    if (has('두열비교','두 열 비교','a열b열비교','a열과b열','a열 b열') && has('비교','일치','불일치','같은지','다른지') && !has('공통','둘다','양쪽','명단공통'))prefer('g136');
+    if (has('공통','둘다있는','둘 다 있는','양쪽에','두명단','두 목록','두목록','두 명단','두명단') && has('이름','명단','사람','a열','b열','목록'))prefer('g149');
+    if (has('시트') && has('합산','합계','더하','더해','더하기','값합','총합') && !has('월별','날짜별'))prefer('g134');
+    if (has('직원별','이름별','사람별','담당자별','직원 별') && has('금액','지출','집행','비용','매출','합계','총합'))prefer('g130');
+    if (has('월별','달마다','매달','개월별') && has('지출','금액','집행','비용','매출','합계','합산'))prefer('g132');
+    if (has('잔액','잔여','남은돈','남은금액','예산빼기') && has('예산','지출','돈','사용','집행','금액'))prefer('g129');
+    if (has('인쇄','프린트','출력') && has('2페이지','두페이지','두장','두 장','한장','1페이지','한페이지','한 장','나뉘','나눠','나누어','잘려','잘림'))prefer('g109');
+    if (has('마감','기한','유효기간','만료') && has('빨강','빨간','색깔','색으로','색표시'))prefer('g102');
+    if ((has('수식','복사') && has('주소','참조','변해','바뀌','고정','안변')) || has('참조고정','절대참조','셀주소고정','주소고정') || (has('참조')&&has('고정')))prefer('g098');
+    if (has('빈칸','빈셀','공란','빈행','빈줄') && has('삭제','제거','없애','지워','지우','정리','찾아'))prefer('g086');
+    if (has('없으면','못찾','검색실패','찾을수없') && has('빈칸','오류','에러','없음','빈 셀'))prefer('g036');
+    if (!numbers && /\$?[a-z]{1,3}\$?\d+\s*(?:[:~]|부터)\s*\$?[a-z]{1,3}\$?\d+/i.test(question) && has('더','합계','총합'))prefer('g002');
+    if (overrides.length) return {hints:[overrides[0]],refs,vague:false,ambiguous:false};
     return {hints,refs,vague,ambiguous};
   }
 
@@ -202,18 +237,23 @@
     const filters = category==='전체' ? [...data.guides,...data.functions] :
       category==='함수 사전'?data.functions:data.guides.filter(x=>x.category===category);
     const q=normalize(query);
-    const intent=classify(q);
+    const intent=classify(query);
     if (!q) {
       // 최초 진입시 인기 순/기능 소개. 함수 사전은 사전순.
       const items=category==='함수 사전'?filters:filters.filter(x=>x.kind==='guide').sort((a,b)=>(b.priority||0)-(a.priority||0));
       return {results:items.slice(0,limit).map(x=>({item:x,score:0})),count:items.length,intent,confidence:'none'};
     }
+    if (intent.unsupported) return {results:[],count:0,intent,confidence:'unsupported'};
     if (intent.vague) return {results:[],count:0,intent,confidence:'vague'};
     if (intent.ambiguous) {
       const choices=['g051','g001','g096'].map(id=>filters.find(x=>x.id===id)).filter(Boolean);
       return {results:choices.map(item=>({item,score:0})),count:choices.length,intent,confidence:'ambiguous'};
     }
     const qtokens=tokens(q);
+    if (!/(#(?:n\/a|ref!|value!|name\?|div\/0!|spill!)|오류|에러|차이|비교)/i.test(q)) {
+      const matched=data.functions.filter(f=>{const name=String(f.name||'').toLowerCase();return name.length>=3&&new RegExp('(^|[^a-z0-9_.])'+name.replace(/\./g,'\\.')+'(?=$|[^a-z0-9_.])','i').test(q);}).sort((a,b)=>b.name.length-a.name.length);
+      if (matched.length===1 && /(함수|사용법|뜻|의미|구문|인수|예시|어떻게)/.test(q)) intent.hints=[matched[0].id];
+    }
     const ranked=filters.map(item=>({item,score:scoreEntry(item,q,qtokens,intent.hints,version)}))
       .filter(x=>x.score>=18).sort((a,b)=>b.score-a.score||String(a.item.title).localeCompare(String(b.item.title),'ko'));
     // 동일 목적 도움말은 중복이 있을 수 있으므로 맨 앞 정확한 응답을 우선
@@ -228,7 +268,7 @@
     const yearMatch=q.match(/(?:19|20)\d{2}(?=년생|\s*년\s*출생|\s*출생)/) || q.match(/(?:19|20)\d{2}(?=년생)/);
     const bornYear=yearMatch ? Number(yearMatch[0]) : null;
     // '미참여'에는 '참여'가 들어 있으므로 부정 상태를 우선 판별한다.
-    const status= /미참여|불참|결석|미출석/.test(q) ? '미참여' : /참석|참여|출석|참가/.test(q) ? '참여' : null;
+    const status= /미참여|불참|결석|미출석|참여하지\s*않|참석하지\s*않|참가하지\s*않|참여안\s*함/.test(q) ? '미참여' : /참석|참여|출석|참가/.test(q) ? '참여' : null;
     const eventYearMatch=q.match(/((?:19|20)\d{2})\s*년에?(?:\s|$|[^가-힣])/);
     const eventYear=eventYearMatch?Number(eventYearMatch[1]):null;
     const gender=/(?:^|[^가-힣])(여자|여성)/u.test(q)?'여':/(?:^|[^가-힣])(남자|남성)/u.test(q)?'남':null;
@@ -243,7 +283,7 @@
       const m=String(question).match(/(\$?[A-Z]{1,3}\$?\d+)\s*(?:[:~]|부터|에서)\s*(\$?[A-Z]{1,3}\$?\d+)/i);
       if(m)return '=SUM('+m[1].toUpperCase()+':'+m[2].toUpperCase()+')';
     }
-    if(item.id==='g051'&&refs.length>=2) return '='+refs[0]+'&'+refs[1];
+    if(item.id==='g051'&&refs.length>=2) return '='+refs[0]+(/띄어쓰기|공백 넣|스페이스/.test(question)?'&" "&':'&')+refs[1];
     const c=interpretConditions(question);
     if(item.id==='g149')return '=FILTER(A2:A100,COUNTIF(B2:B100,A2:A100)>0,"해당 없음")';
     if(item.id==='g150' && c.status && c.threshold!==null)
@@ -258,6 +298,13 @@
       return '=FILTER(A2:B100,B2:B100'+c.operator+c.threshold+',"해당 없음")';
     if(item.id==='g146' && c.threshold!==null)
       return '=FILTER(A2:B100,B2:B100'+c.operator+c.threshold+',"해당 없음")';
+    if(item.id==='g151' && c.threshold!==null && c.gender && c.status)
+      return '=FILTER(A2:D100,(B2:B100="'+c.gender+'")*(C2:C100'+c.operator+c.threshold+')*(D2:D100="'+c.status+'"),"해당 없음")';
+    if(item.id==='g154' && c.threshold!==null && c.bornYear && c.status)
+      return '=FILTER(A2:D100,(B2:B100='+c.bornYear+')*(C2:C100'+c.operator+c.threshold+')*(D2:D100="'+c.status+'"),"해당 없음")';
+    if(item.id==='g152'){ const m=String(question).match(/((?:19|20)\d{2})\s*년\s*(0?[1-9]|1[0-2])\s*월/);
+      if(m&&c.status){const y=Number(m[1]),mon=Number(m[2]);return '=FILTER(A2:C100,(B2:B100>=DATE('+y+','+mon+',1))*(B2:B100<EDATE(DATE('+y+','+mon+',1),1))*(C2:C100="'+c.status+'"),"해당 없음")';}
+    }
     if(item.id==='g148' && c.threshold!==null && c.eventYear && c.status)
       return '=FILTER(A2:D100,(B2:B100='+c.eventYear+')*(C2:C100'+c.operator+c.threshold+')*(D2:D100="'+c.status+'"),"해당 없음")';
     return null;
@@ -266,10 +313,29 @@
     if(!item)return null;
     const c=interpretConditions(question);
     if(item.id==='g051') {
-      const refs=refContexts(question), f=refs.length>=2?'='+refs[0]+'&'+refs[1]:'=A2&B2';
-      return {headers:['성','이름','전체 이름'],rows:[['김','민수','김민수'],['박','지연','박지연']],formula:f,result:'김민수',explain:'문자열을 이어 붙일 때는 &를 사용합니다. 공백이 필요하면 =A2&" "&B2처럼 입력하세요. 셀 병합과는 다른 기능입니다.'};
+      const spaced=/띄어쓰기|공백 넣|스페이스/.test(question);
+      return {headers:['성','이름','전체 이름'],rows:[['김','민수',spaced?'김 민수':'김민수'],['박','지연',spaced?'박 지연':'박지연']],formula:spaced?'=A2&" "&B2':'=A2&B2',result:spaced?'김 민수':'김민수',explain:'예시 표는 2행 기준입니다. 질문에서 A5·B5처럼 다른 셀 주소를 지정했다면 아래의 맞춤 수식을 참고하세요. 셀 병합과는 다른 기능입니다.'};
     }
-    if(item.id==='g149')return {headers:['A명단','B명단','검색 결과'],rows:[['김철수','이영희',''],['이영희','최지은','이영희'],['박민수','박민수','박민수']],formula:'=FILTER(A2:A4,COUNTIF(B2:B4,A2:A4)>0,"해당 없음")',result:'이영희, 박민수',explain:'A열 명단에서 B열에도 등장하는 이름을 찾습니다. 동일 이름이 서로 다른 사람일 수 있으니 실제 업무에서는 고유번호를 기준으로 대조하세요.'};
+    if(item.id==='g151' && c.gender && c.status && c.threshold!==null){
+      const other=c.gender==='남'?'여':'남';
+      const rows=[['김철수',c.gender,String(c.threshold),c.status],['이영희',other,String(c.threshold+3),c.status],['박민수',c.gender,String(c.threshold+2),c.status],['최지은',c.gender,String(Math.max(0,c.threshold-1)),c.status]];
+      const op=x=>({'>=':x>=c.threshold,'>':x>c.threshold,'<=':x<=c.threshold,'<':x<c.threshold}[c.operator]);
+      return {headers:['이름','성별','이용횟수','참여여부'],rows,formula:'=FILTER(A2:D5,(B2:B5="'+c.gender+'")*(C2:C5'+c.operator+c.threshold+')*(D2:D5="'+c.status+'"),"해당 없음")',result:rows.filter(r=>r[1]===c.gender&&op(+r[2])&&r[3]===c.status).map(r=>r[0]).join(', ')||'해당 없음',explain:'성별, 이용횟수, 참여 상태를 동시에 확인합니다. 예시 표에는 실제 직원이나 이용자의 정보가 들어 있지 않습니다.'};
+    }
+    if(item.id==='g154' && c.bornYear && c.status && c.threshold!==null){
+      const rows=[['김철수',String(c.bornYear),String(c.threshold),c.status],['이영희',String(c.bornYear-1),String(c.threshold+1),c.status],['박민수',String(c.bornYear),String(c.threshold+2),c.status],['최지은',String(c.bornYear),String(Math.max(0,c.threshold-1)),c.status]];
+      const op=x=>({'>=':x>=c.threshold,'>':x>c.threshold,'<=':x<=c.threshold,'<':x<c.threshold}[c.operator]);
+      return {headers:['이름','출생연도','이용횟수','참여여부'],rows,formula:'=FILTER(A2:D5,(B2:B5='+c.bornYear+')*(C2:C5'+c.operator+c.threshold+')*(D2:D5="'+c.status+'"),"해당 없음")',result:rows.filter(r=>+r[1]===c.bornYear&&op(+r[2])&&r[3]===c.status).map(r=>r[0]).join(', ')||'해당 없음',explain:'출생연도, 이용횟수, 참여여부를 동시에 적용한 가상의 명단입니다.'};
+    }
+    if(item.id==='g152'){
+      const m=String(question).match(/((?:19|20)\d{2})\s*년\s*(0?[1-9]|1[0-2])\s*월/);
+      if(m&&c.status){const y=Number(m[1]),mon=Number(m[2]); const two=x=>String(x).padStart(2,'0');
+        const dates=[`${y}-${two(mon)}-03`,`${y}-${two(mon)}-16`,`${y}-${two(mon===12?1:mon+1)}-05`,`${y}-${two(mon)}-24`];if(mon===12)dates[2]=`${y+1}-01-05`;
+        const rows=[['김철수',dates[0],c.status],['이영희',dates[1],c.status==='참여'?'미참여':'참여'],['박민수',dates[2],c.status],['최지은',dates[3],c.status]];
+        return {headers:['이름','참여날짜','참여여부'],rows,formula:'=FILTER(A2:C5,(B2:B5>=DATE('+y+','+mon+',1))*(B2:B5<EDATE(DATE('+y+','+mon+',1),1))*(C2:C5="'+c.status+'"),"해당 없음")',result:'김철수, 최지은',explain:'B열의 값이 Excel 날짜로 입력돼 있어야 합니다. 단순한 텍스트 문자열이면 이 수식으로 날짜 비교가 되지 않을 수 있습니다.'};
+      }
+    }
+    if(item.id==='g149')return {headers:['A명단','B명단','검색 결과'],rows:[['김철수','이영희','이영희'],['이영희','최지은','박민수'],['박민수','박민수','']],formula:'=FILTER(A2:A4,COUNTIF(B2:B4,A2:A4)>0,"해당 없음")',result:'이영희, 박민수',explain:'A열 명단에서 B열에도 등장하는 이름을 찾습니다. 동일 이름이 서로 다른 사람일 수 있으니 실제 업무에서는 고유번호를 기준으로 대조하세요.'};
     if(item.id==='g150' && c.status && c.threshold!==null){
       const op=x=>({'=':x===c.threshold,'>=':x>=c.threshold,'>':x>c.threshold,'<=':x<=c.threshold,'<':x<c.threshold}[c.operator]);
       const rows=[['김철수',String(c.threshold),c.status],['이영희',String(c.threshold-1),c.status],['박민수',String(c.threshold+2),'미참여']];
@@ -287,6 +353,13 @@
     }
     if(item.id==='g144' && c.gender && c.status){
       return {headers:['이름','성별','참여여부'],rows:[['김철수','남',c.status],['이영희','여','참여'],['박민수',c.gender,c.status],['최지은','여','미참여']],formula:'=FILTER(A2:C5,(B2:B5="'+c.gender+'")*(C2:C5="'+c.status+'"),"해당 없음")',result:c.gender==='여' && c.status==='참여'?'이영희, 박민수':c.gender==='여'?'박민수, 최지은':'김철수, 박민수',explain:'예시는 성별 열에 남/여, 참여여부 열에 참여/미참여라고 적힌 경우에 한합니다.'};
+    }
+    if(item.id==='g151' && c.threshold!==null && c.gender && c.status)
+      return '=FILTER(A2:D100,(B2:B100="'+c.gender+'")*(C2:C100'+c.operator+c.threshold+')*(D2:D100="'+c.status+'"),"해당 없음")';
+    if(item.id==='g154' && c.threshold!==null && c.bornYear && c.status)
+      return '=FILTER(A2:D100,(B2:B100='+c.bornYear+')*(C2:C100'+c.operator+c.threshold+')*(D2:D100="'+c.status+'"),"해당 없음")';
+    if(item.id==='g152'){ const m=String(question).match(/((?:19|20)\d{2})\s*년\s*(0?[1-9]|1[0-2])\s*월/);
+      if(m&&c.status){const y=Number(m[1]),mon=Number(m[2]);return '=FILTER(A2:C100,(B2:B100>=DATE('+y+','+mon+',1))*(B2:B100<EDATE(DATE('+y+','+mon+',1),1))*(C2:C100="'+c.status+'"),"해당 없음")';}
     }
     if(item.id==='g148' && c.threshold!==null && c.eventYear && c.status){
       const other=c.eventYear===2025?2024:2025;

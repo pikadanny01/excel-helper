@@ -43,10 +43,11 @@
     if(!q)return '';
     const c=engine.interpretConditions(q);
     const labels=[];
-    if(['g143','g015'].includes(a.id) && c.bornYear && c.status){
-      labels.push('출생연도 '+c.bornYear+'년','참여 여부 '+c.status);
-    } else if(a.id==='g144' && c.gender && c.status){
-      labels.push('성별 '+(c.gender==='남'?'남성':'여성'),'참여 여부 '+c.status);
+    if(['g143','g015','g154'].includes(a.id) && c.bornYear && c.status){
+      labels.push('출생연도 '+c.bornYear+'년','참여 여부 '+c.status);if(a.id==='g154'&&c.threshold!==null)labels.push('횟수 '+c.operator+' '+c.threshold);
+    } else if(['g144','g151'].includes(a.id) && c.gender && c.status){
+      labels.push('성별 '+(c.gender==='남'?'남성':'여성'),'참여 여부 '+c.status);if(a.id==='g151'&&c.threshold!==null)labels.push('횟수 '+c.operator+' '+c.threshold);
+    } else if(a.id==='g152' && c.status){const m=q.match(/((?:19|20)\d{2})\s*년\s*(0?[1-9]|1[0-2])\s*월/);if(m)labels.push(m[1]+'년 '+Number(m[2])+'월',c.status);
     } else if(['g145','g146'].includes(a.id) && c.threshold!==null){
       labels.push((a.id==='g145'?'점수 ':'이용횟수 ')+c.operator+' '+c.threshold);
     } else if(a.id==='g148' && c.eventYear && c.status && c.threshold!==null){
@@ -67,7 +68,7 @@
     const result=e.result?`<div class="visual-outcome"><strong>예상 결과</strong><span>${escapeHTML(e.result)}</span></div>`:'';
     const context=custom&&questionContext(a)?`<div class="question-context"><strong>✓ 현재 질문 조건 적용</strong><span>${escapeHTML(questionContext(a))}</span></div>`:'';
     const label=custom?'질문에 적은 조건을 반영한 가상 예시입니다.':'미리 등록된 일반 예시입니다. 질문의 숫자·조건이 자동 반영된 예시는 아닙니다.';
-    return `<section class="answer-section visual-section"><h4>엑셀 예시: A·B·C 열과 1·2·3 행을 확인하세요</h4>${context}<p class="visual-lead">${label} 1행은 제목이고 2행부터 데이터입니다. 실제 표의 열 배치가 다르면 수식 주소도 바꿔야 합니다.</p><div class="visual-scroll"><table class="example-table excel-grid"><thead><tr><th class="excel-corner" aria-label="셀 위치"></th>${letterRow}</tr><tr><th scope="row" class="excel-row-index">1</th>${headRow}</tr></thead><tbody>${body}</tbody></table></div>${formula}${result}${e.explain?`<p class="visual-explain">${escapeHTML(e.explain)}</p>`:''}</section>`;
+    return `<section class="answer-section visual-section"><h4>엑셀 예시: 열 문자와 행 번호를 확인하세요</h4>${context}<p class="visual-lead">${label} 1행은 제목이고 2행부터 데이터입니다. 실제 표의 열 배치가 다르면 수식 주소도 바꿔야 합니다.</p><div class="visual-scroll"><table class="example-table excel-grid"><thead><tr><th class="excel-corner" aria-label="셀 위치"></th>${letterRow}</tr><tr><th scope="row" class="excel-row-index">1</th>${headRow}</tr></thead><tbody>${body}</tbody></table></div>${formula}${result}${e.explain?`<p class="visual-explain">${escapeHTML(e.explain)}</p>`:''}</section>`;
   }
   function detailHTML(a){
     let formula=engine.suggestedFormula(state.query,a);
@@ -77,7 +78,11 @@
     const verified=a.kind==='function'?a.verified!==false:true;
     const c=engine.interpretConditions(state.query);
     const steps=[...(a.steps||[])];
-    // 정적 단계 속 2005년 같은 값이 다른 조건을 검색할 때도 그대로 보이는 오류 방지
+    // 고정 예시의 과거 숫자·조건이 맞춤형 질문 설명에 섞이지 않도록 분리
+    const generated=engine.dynamicExample(state.query,a);
+    if (generated && ['g143','g015','g144','g145','g146','g148','g150','g151','g152','g154'].includes(a.id)) {
+      steps.length=0;steps.push('아래 가상 예시 표의 열 위치(A·B·C·D)와 실제 파일의 열을 비교하세요.','질문에 입력된 조건을 적용한 예시 수식을 빈 셀에 입력합니다.','결과가 다르면 수식의 열 범위, 숫자/텍스트 구분, Excel 버전을 확인하세요.');
+    }
     if(a.id==='g143' && c.bornYear && c.status){
       steps.length=0;
       steps.push('A열: 이름, B열: 출생연도(숫자), C열: 참여 여부로 표를 구성합니다.',
@@ -111,6 +116,10 @@
     else if(state.category!=='전체'){el.title.textContent=state.category;el.subtitle.textContent='실무에 자주 사용하는 해결 방법을 모았습니다.';}
     else {el.title.textContent='자주 찾는 해결 방법';el.subtitle.textContent='원하는 항목을 누르거나 위 검색창에 질문해 보세요.';}
 
+    if (isQuery && results.confidence==='unsupported'){
+      notice('질문에서 여러 조건이 발견됐지만, 현재 자동 수식 생성기가 모든 조건을 함께 처리하지 못합니다. 일부 조건을 누락한 수식을 제시하지 않도록 결과를 제한했습니다. 예: 조건을 나누어 필터로 적용하거나 원하는 열 배치를 구체적으로 질문해 주세요.','warning');
+      el.list.innerHTML=exampleLinks();el.detail.hidden=true;el.related.innerHTML='';return;
+    }
     if (isQuery && results.confidence==='vague'){
       notice('원하는 결과 모양이나 셀 주소가 빠져 있어 정확한 방법을 고르기 어렵습니다. 예: “A1과 B1을 더하고 싶어”, “날짜를 2026-11-11 형태로 보이고 싶어”','warning');
       el.list.innerHTML=exampleLinks();el.detail.hidden=true;el.related.innerHTML='';return;
@@ -219,7 +228,7 @@
     $('customExport').addEventListener('click',()=>downloadJSON('excel-helper-custom-guides.json',localRead(customStore,[])));
     $('feedbackExport').addEventListener('click',()=>downloadJSON('excel-helper-feedback.json',localRead(feedbackStore,[])));
   }
-  function applyQuery(value){state.query=String(value||'').slice(0,220);el.query.value=state.query;state.limit=12;state.selected=null;state.savedOnly=false;render();}
+  function applyQuery(value){state.category='전체';state.query=String(value||'').slice(0,220);el.query.value=state.query;state.limit=12;state.selected=null;state.savedOnly=false;render();}
   async function copyText(str){
     try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(str);}else{
       const x=document.createElement('textarea');x.value=str;x.style.cssText='position:fixed;left:-10000px;top:0';document.body.appendChild(x);x.select();if(!document.execCommand('copy'))throw new Error('copy');x.remove();

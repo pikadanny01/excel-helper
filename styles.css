@@ -26,3 +26,5 @@
 .question-context span{font-weight:650}
 [data-theme="dark"] .question-context{background:#163a2d;color:#c5f0d5;border-color:#2c7956}
 .header .status strong{font-size:11px;padding-left:5px;color:inherit}
+/* v1.4: '저장한 도움말'을 모바일에서 숨기던 규칙 수정 */
+@media(max-width:720px){#showSaved{display:flex}.sidebar-panel{align-items:stretch}.sidebar-panel .sidebar-special{flex:1 1 auto;min-width:calc(50% - 6px);font-size:12px;padding:9px 10px}.sidebar-panel .sidebar-special span:first-child{font-size:16px}}
