@@ -19,3 +19,10 @@
 .tool-panel h3{font-size:20px;margin:0 0 12px}.tool-intro{color:var(--sub);font-size:13px;line-height:1.75}.tool-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}.tool-fields label{display:grid;gap:6px;color:var(--sub);font-size:12px;font-weight:700}.tool-fields .wide{grid-column:1/-1}.tool-fields input,.tool-fields select,.tool-fields textarea,.file-input input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 12px;min-width:0;width:100%}.tool-fields textarea{resize:vertical}.action-primary,.action-secondary{padding:11px 15px;border:1px solid var(--green);border-radius:9px;font-size:13px;font-weight:750;cursor:pointer}.action-primary{background:var(--green);color:var(--card)}.action-secondary{background:var(--card);color:var(--green)}.tool-buttons{display:flex;flex-wrap:wrap;gap:9px}.tool-result{margin:15px 0}.file-input{display:block;background:var(--soft);border-radius:10px;padding:16px;margin:15px 0;font-size:12px;font-weight:700}.file-input input{margin-top:9px}.sidebar-special{cursor:pointer}
 @media(max-width:720px){#openFormulaBuilder,#openCSV,#openCustom{display:flex}.sidebar-panel{display:flex;flex-wrap:wrap;gap:5px}.sidebar-panel .categories{width:100%}.tool-fields{grid-template-columns:1fr}.tool-panel{padding:17px}.tool-buttons button{flex:1 1 100%}}
 @media print{.tool-panel{display:none!important}}
+
+/* v1.2.1: 질문 조건 표시와 검색 맥락 안내 */
+.question-context{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#e5f4ea;color:#0d5739;border:1px solid #9bceb3;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px}
+.question-context strong{font-weight:800}
+.question-context span{font-weight:650}
+[data-theme="dark"] .question-context{background:#163a2d;color:#c5f0d5;border-color:#2c7956}
+.header .status strong{font-size:11px;padding-left:5px;color:inherit}

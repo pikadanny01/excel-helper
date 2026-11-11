@@ -37,8 +37,25 @@
     return `<button class="result-row" data-open="${safeAttr(a.id)}" type="button"><span class="item-emblem">${escapeHTML(a.kind==='function'?'ƒx':(CATS[a.category]||'✓'))}</span><span class="result-body"><span class="result-name">${escapeHTML(a.title)}</span><span class="result-desc">${escapeHTML(a.desc)}</span><span class="result-tags">${escapeHTML(a.kind==='function'?'함수 사전':a.category)}${a.kind==='function'&&!a.verified?' · 공식 문서 참조':''}</span></span><span class="result-arrow">↗</span></button>`;
   }
   function colName(i){let out='';for(let n=i+1;n>0;n=Math.floor((n-1)/26))out=String.fromCharCode(65+(n-1)%26)+out;return out;}
+  function questionContext(a){
+    const q=state.query.trim();
+    if(!q)return '';
+    const c=engine.interpretConditions(q);
+    const labels=[];
+    if(['g143','g015'].includes(a.id) && c.bornYear && c.status){
+      labels.push('출생연도 '+c.bornYear+'년','참여 여부 '+c.status);
+    } else if(a.id==='g144' && c.gender && c.status){
+      labels.push('성별 '+(c.gender==='남'?'남성':'여성'),'참여 여부 '+c.status);
+    } else if(['g145','g146'].includes(a.id) && c.threshold!==null){
+      labels.push((a.id==='g145'?'점수 ':'이용횟수 ')+c.operator+' '+c.threshold);
+    } else if(a.id==='g148' && c.eventYear && c.status && c.threshold!==null){
+      labels.push('참여연도 '+c.eventYear+'년','이용횟수 '+c.operator+' '+c.threshold,'참여 여부 '+c.status);
+    }
+    return labels.join(' · ');
+  }
   function visualExampleHTML(a){
-    const e=engine.dynamicExample(state.query,a)||window.EXCEL_HELPER_VISUALS?.[a.id];
+    const custom=engine.dynamicExample(state.query,a);
+    const e=custom||window.EXCEL_HELPER_VISUALS?.[a.id];
     if(!e)return '';
     const headers=e.headers||[],rows=e.rows||[];
     const count=Math.max(headers.length,...rows.map(r=>r.length),1);
@@ -47,7 +64,9 @@
     const body=rows.map((r,i)=>`<tr><th scope="row" class="excel-row-index">${i+2}</th>${Array.from({length:count},(_,c)=>`<td>${escapeHTML(r[c]??'')}</td>`).join('')}</tr>`).join('');
     const formula=e.formula?`<div class="visual-formula"><span>예시 수식</span><code>${escapeHTML(e.formula)}</code><button type="button" class="copy-btn" data-copy="${safeAttr(e.formula)}">복사 ⧉</button></div>`:'';
     const result=e.result?`<div class="visual-outcome"><strong>예상 결과</strong><span>${escapeHTML(e.result)}</span></div>`:'';
-    return `<section class="answer-section visual-section"><h4>엑셀 예시: 열(A·B·C)과 행(1·2·3)을 보고 따라 해보세요</h4><p class="visual-lead">1행은 제목, 2행부터 데이터입니다. 실제 파일의 열 순서가 다르면 수식 주소도 바꾸세요. 아래 표는 가상의 예시입니다.</p><div class="visual-scroll"><table class="example-table excel-grid"><thead><tr><th class="excel-corner" aria-label="셀 위치"></th>${letterRow}</tr><tr><th scope="row" class="excel-row-index">1</th>${headRow}</tr></thead><tbody>${body}</tbody></table></div>${formula}${result}${e.explain?`<p class="visual-explain">${escapeHTML(e.explain)}</p>`:''}</section>`;
+    const context=custom&&questionContext(a)?`<div class="question-context"><strong>✓ 현재 질문 조건 적용</strong><span>${escapeHTML(questionContext(a))}</span></div>`:'';
+    const label=custom?'질문에 적은 조건을 반영한 가상 예시입니다.':'미리 등록된 일반 예시입니다. 질문의 숫자·조건이 자동 반영된 예시는 아닙니다.';
+    return `<section class="answer-section visual-section"><h4>엑셀 예시: A·B·C 열과 1·2·3 행을 확인하세요</h4>${context}<p class="visual-lead">${label} 1행은 제목이고 2행부터 데이터입니다. 실제 표의 열 배치가 다르면 수식 주소도 바꿔야 합니다.</p><div class="visual-scroll"><table class="example-table excel-grid"><thead><tr><th class="excel-corner" aria-label="셀 위치"></th>${letterRow}</tr><tr><th scope="row" class="excel-row-index">1</th>${headRow}</tr></thead><tbody>${body}</tbody></table></div>${formula}${result}${e.explain?`<p class="visual-explain">${escapeHTML(e.explain)}</p>`:''}</section>`;
   }
   function detailHTML(a){
     let formula=engine.suggestedFormula(state.query,a);
@@ -55,7 +74,16 @@
     const source=sourceURL(a.source);
     const examples=formula?[formula]:[...new Set(a.examples||[])];
     const verified=a.kind==='function'?a.verified!==false:true;
-    const stepHTML=(a.steps||[]).length?`<section class="answer-section"><h4>따라 하는 방법</h4><ol class="steps">${a.steps.map(s=>`<li>${escapeHTML(s)}</li>`).join('')}</ol></section>`:'';
+    const c=engine.interpretConditions(state.query);
+    const steps=[...(a.steps||[])];
+    // 정적 단계 속 2005년 같은 값이 다른 조건을 검색할 때도 그대로 보이는 오류 방지
+    if(a.id==='g143' && c.bornYear && c.status){
+      steps.length=0;
+      steps.push('A열: 이름, B열: 출생연도(숫자), C열: 참여 여부로 표를 구성합니다.',
+        'B열은 '+c.bornYear+'년, C열은 '+c.status+'인 행을 찾습니다.',
+        'Microsoft 365 또는 Excel 2021 이상이면 아래 FILTER 수식을 사용하고, 구버전에서는 데이터 → 필터에서 두 열의 조건을 각각 선택하세요.');
+    }
+    const stepHTML=steps.length?`<section class="answer-section"><h4>따라 하는 방법</h4><ol class="steps">${steps.map(s=>`<li>${escapeHTML(s)}</li>`).join('')}</ol></section>`:'';
     const examplesHTML=examples.length?`<section class="answer-section"><h4>${a.kind==='function'?'사용 예시':'예시 수식·입력값'}</h4>${examples.map(x=>`<div class="formula-row"><code>${escapeHTML(x)}</code><button type="button" class="copy-btn" data-copy="${safeAttr(x)}" aria-label="예시 복사">복사 ⧉</button></div>`).join('')}<p class="micro-note">예시의 셀 주소는 가상의 주소입니다. 실제 파일에 맞게 변경하세요.</p></section>`:'';
     return `<div class="answer-top"><div class="answer-icon">${escapeHTML(a.kind==='function'?'ƒx':CATS[a.category]||'✓')}</div><div class="answer-meta"><div class="answer-kicker">${escapeHTML(a.kind==='function'?'함수 사전':a.category)} <span>· ${escapeHTML(versionLabel(a.version))}</span></div><h3>${escapeHTML(a.title)}</h3></div><button class="bookmark ${state.saved.has(a.id)?'marked':''}" type="button" data-save="${safeAttr(a.id)}" title="즐겨찾기 저장" aria-label="${state.saved.has(a.id)?'저장 해제':'저장하기'}">${state.saved.has(a.id)?'★':'☆'}</button></div>
       ${bad?'<div class="warning">선택한 Excel 버전에서는 이 기능이 지원되지 않을 수 있습니다. 버전을 확인하세요.</div>':''}
