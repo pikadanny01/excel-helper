@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="엑셀 헬퍼 — 질문하면 관련 사용법과 함수를 알려주는 무료 오프라인 도움말 검색 사이트. AI·가입·파일 업로드 불필요.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0c6a47">
+  <title>엑셀 헬퍼 | 쉬운 엑셀 질문·답변</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="top-stripe"></div>
+  <header class="header">
+    <div class="header-inner">
+      <a href="index.html" class="brand" aria-label="엑셀 헬퍼 홈">
+        <span class="brand-icon" aria-hidden="true">X<span class="brand-grid">▦</span></span>
+        <span class="brand-words"><strong>엑셀 헬퍼</strong><small>EXCEL HELPER</small></span>
+      </a>
+      <div class="header-right">
+        <span class="status"><span class="status-dot"></span>오프라인 검색 지원</span>
+        <button type="button" class="icon-button" id="themeBtn" aria-label="색상 테마 전환" title="다크 모드 전환">☾</button>
+        <a class="about-btn" href="#about" id="aboutLink">이용 안내</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-backdrop" aria-hidden="true"><span>SUM</span><span>IF</span><span>fx</span></div>
+      <div class="hero-content">
+        <p class="eyebrow">EVERYDAY EXCEL, MADE SIMPLE</p>
+        <h1 id="hero-title">엑셀에서 막혔다면,<br><em>여기서 해결해 보세요.</em></h1>
+        <p class="hero-desc">평소 쓰는 말로 질문하세요. 관련 기능과 수식을 찾아 설명해 드립니다.</p>
+        <form id="searchForm" class="search-form" role="search" autocomplete="off">
+          <span class="search-icon" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></span>
+          <label class="sr-only" for="query">엑셀 질문 입력</label>
+          <input id="query" name="q" type="search" maxlength="220" placeholder="예: 이거랑 이거랑 더하는 방법은?" enterkeyhint="search" autofocus>
+          <button class="search-submit" type="submit">답변 찾기 <span aria-hidden="true">↗</span></button>
+        </form>
+        <div class="suggestions" id="suggestions" aria-label="예시 질문">
+          <span>이렇게 물어보세요</span>
+          <button type="button" data-query="이거랑 이거랑 더하는 방법은?">두 셀 더하기</button>
+          <button type="button" data-query="중복된 이름만 색칠하려면?">중복값 찾기</button>
+          <button type="button" data-query="숫자를 1,000원처럼 나타내려면?">숫자 서식</button>
+          <button type="button" data-query="VLOOKUP 함수 알려줘">VLOOKUP</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <aside class="sidebar" aria-label="검색 탐색">
+        <div class="sidebar-panel">
+          <div class="section-label">찾아보기</div>
+          <nav class="categories" id="categories" aria-label="도움말 카테고리"></nav>
+          <div class="sidebar-divider"></div>
+          <button class="sidebar-special" id="showSaved" type="button"><span aria-hidden="true">☆</span> 저장한 도움말 <span id="savedCount" class="small-count">0</span></button>
+        </div>
+        <div class="privacy-small"><span aria-hidden="true">◈</span><div><strong>안전한 질문 검색</strong><p>질문과 자료를 서버로 전송하지 않습니다. 개인정보는 입력하지 마세요.</p></div></div>
+      </aside>
+
+      <section class="content" id="results-area" aria-live="polite">
+        <div class="content-head">
+          <div><div class="section-label">QUICK ANSWERS</div><h2 id="sectionTitle">자주 찾는 해결 방법</h2><p id="resultSubtitle">필요한 답변을 골라보세요.</p></div>
+          <label class="version-picker">사용하는 엑셀
+            <select id="excelVersion" title="사용하는 엑셀 버전 선택">
+              <option value="365">Microsoft 365</option><option value="2024">Excel 2024</option><option value="2021">Excel 2021</option><option value="2019">Excel 2019</option><option value="2016">Excel 2016</option>
+            </select>
+          </label>
+        </div>
+        <div id="notice" class="notice" hidden></div>
+        <div id="resultList" class="result-list"></div>
+        <div id="detail" class="answer-card" hidden></div>
+        <div id="related" class="related"></div>
+        <button id="moreBtn" class="more-button" type="button" hidden>더 많은 결과 보기</button>
+      </section>
+
+      <aside class="right-panel" aria-label="도움말 정보">
+        <div class="quick-box">
+          <div class="section-label">도움되는 팁</div>
+          <div class="tip-icon" aria-hidden="true">⌘</div>
+          <h3>자주 쓰는 단축키</h3>
+          <div class="shortcut"><span>합계 자동 입력</span><kbd>Alt + =</kbd></div>
+          <div class="shortcut"><span>셀 서식</span><kbd>Ctrl + 1</kbd></div>
+          <div class="shortcut"><span>표로 만들기</span><kbd>Ctrl + T</kbd></div>
+          <div class="shortcut"><span>필터 켜기</span><kbd>Ctrl + Shift + L</kbd></div>
+          <div class="shortcut"><span>검색창 이동</span><kbd>/</kbd></div>
+        </div>
+        <div class="small-box"><h3>함수도 찾아보세요</h3><p><strong id="fnCount">-</strong>개의 함수명 색인과 주요 함수 예시를 제공합니다.</p><button type="button" id="openDictionary">함수 사전 열기 →</button></div>
+      </aside>
+    </div>
+    <section id="about" class="about-section">
+      <div><span class="section-label">ABOUT EXCEL HELPER</span><h2>복잡한 엑셀을 조금 더 쉽게.</h2><p>AI 서비스가 아닌, 검토한 도움말을 연관어·키워드로 찾아주는 검색 도구입니다. 모호하거나 등록되지 않은 내용에는 임의의 정답을 만들지 않습니다. 최신 버전 기능이나 고급 함수는 공식 문서를 함께 확인해 주세요.</p></div>
+      <div class="about-stats"><div><strong id="guideCount">-</strong><span>실무 도움말</span></div><div><strong id="verifiedCount">-</strong><span>예시가 있는 함수</span></div><div><strong id="allCount">-</strong><span>함수명 색인</span></div></div>
+    </section>
+  </main>
+  <footer class="footer"><span>© 2026 Excel Helper · v<span id="appVersion">1.0.0</span></span><span>독립적인 비공식 도움말 · Microsoft 및 Excel은 각 소유자의 상표입니다.</span><a href="https://support.microsoft.com/ko-kr/excel/excel-functions-alphabetical" target="_blank" rel="noopener noreferrer">Microsoft 공식 함수 목록 ↗</a></footer>
+  <div role="status" id="toast" class="toast" aria-live="polite"></div>
+  <script src="data.js"></script>
+  <script src="search-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
