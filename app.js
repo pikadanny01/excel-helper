@@ -30,6 +30,15 @@
     const a=x.item;
     return `<button class="result-row" data-open="${safeAttr(a.id)}" type="button"><span class="item-emblem">${escapeHTML(a.kind==='function'?'ƒx':(CATS[a.category]||'✓'))}</span><span class="result-body"><span class="result-name">${escapeHTML(a.title)}</span><span class="result-desc">${escapeHTML(a.desc)}</span><span class="result-tags">${escapeHTML(a.kind==='function'?'함수 사전':a.category)}${a.kind==='function'&&!a.verified?' · 공식 문서 참조':''}</span></span><span class="result-arrow">↗</span></button>`;
   }
+  function visualExampleHTML(a){
+    const e=window.EXCEL_HELPER_VISUALS?.[a.id];
+    if(!e)return '';
+    const header=(e.headers||[]).map(x=>`<th scope="col">${escapeHTML(x)}</th>`).join('');
+    const rows=(e.rows||[]).map(r=>`<tr>${r.map(v=>`<td>${escapeHTML(v)}</td>`).join('')}</tr>`).join('');
+    const formula=e.formula?`<div class="visual-formula"><span>적용 수식</span><code>${escapeHTML(e.formula)}</code><button type="button" class="copy-btn" data-copy="${safeAttr(e.formula)}">복사 ⧉</button></div>`:'';
+    const output=e.result?`<div class="visual-outcome"><strong>예상 결과</strong><span>${escapeHTML(e.result)}</span></div>`:'';
+    return `<section class="answer-section visual-section"><h4>실제로 적용하면 이렇게 됩니다</h4><p class="visual-lead">이해를 돕기 위한 가상 데이터 예시입니다.</p><div class="visual-scroll"><table class="example-table"><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table></div>${formula}${output}<p class="visual-explain">${escapeHTML(e.explain)}</p></section>`;
+  }
   function detailHTML(a){
     let formula=engine.suggestedFormula(state.query,a);
     const bad=engine.isIncompatible(a.version,state.version);
@@ -41,7 +50,7 @@
     return `<div class="answer-top"><div class="answer-icon">${escapeHTML(a.kind==='function'?'ƒx':CATS[a.category]||'✓')}</div><div class="answer-meta"><div class="answer-kicker">${escapeHTML(a.kind==='function'?'함수 사전':a.category)} <span>· ${escapeHTML(versionLabel(a.version))}</span></div><h3>${escapeHTML(a.title)}</h3></div><button class="bookmark ${state.saved.has(a.id)?'marked':''}" type="button" data-save="${safeAttr(a.id)}" title="즐겨찾기 저장" aria-label="${state.saved.has(a.id)?'저장 해제':'저장하기'}">${state.saved.has(a.id)?'★':'☆'}</button></div>
       ${bad?'<div class="warning">선택한 Excel 버전에서는 이 기능이 지원되지 않을 수 있습니다. 버전을 확인하세요.</div>':''}
       ${verified?'':'<div class="warning subdued">이 함수는 이름만 색인에 등록돼 있습니다. 구문과 설명은 Microsoft 공식 문서에서 확인해 주세요.</div>'}
-      <p class="answer-intro">${escapeHTML(a.desc)}</p>${stepHTML}${examplesHTML}
+      <p class="answer-intro">${escapeHTML(a.desc)}</p>${stepHTML}${visualExampleHTML(a)}${examplesHTML}
       ${(a.tips||[]).length?`<section class="answer-section tip-section"><h4>알아두세요</h4>${a.tips.map(t=>`<p>• ${escapeHTML(t)}</p>`).join('')}</section>`:''}
       <div class="answer-actions"><a href="${safeAttr(source)}" target="_blank" rel="noopener noreferrer" class="source-link">Microsoft 공식 도움말 ↗</a><button type="button" class="plain-action" data-copy-answer="${safeAttr(a.id)}">설명 복사</button><button type="button" class="plain-action" data-print="1">인쇄</button></div>`;
   }
