@@ -1,10 +1,16 @@
 (function() {
   'use strict';
   const DB=window.EXCEL_HELPER_DATA;
+  const customStore='exh-custom-v12', feedbackStore='exh-feedback-v12';
+  // Added entries live in this browser only until exported and deployed by an administrator.
+  try {
+    const extras=JSON.parse(localStorage.getItem(customStore)||'[]');
+    if(Array.isArray(extras))for(const x of extras.slice(0,100))if(x&&/^local-[a-z0-9-]+$/.test(x.id)&&typeof x.title==='string'&&typeof x.desc==='string'&&x.title.length<=120&&x.desc.length<=2000){DB.guides.push(x);}
+  }catch{}
   const engine=window.ExcelSearch;
   if (!DB||!engine) {document.body.textContent='도움말 파일을 불러올 수 없습니다. 모든 파일을 같은 폴더에 두세요.';return;}
   const $=id=>document.getElementById(id);
-  const el={query:$('query'),form:$('searchForm'),list:$('resultList'),detail:$('detail'),related:$('related'),title:$('sectionTitle'),subtitle:$('resultSubtitle'),cat:$('categories'),notice:$('notice'),more:$('moreBtn'),version:$('excelVersion'),toast:$('toast')};
+  const el={query:$('query'),form:$('searchForm'),list:$('resultList'),detail:$('detail'),related:$('related'),title:$('sectionTitle'),subtitle:$('resultSubtitle'),cat:$('categories'),notice:$('notice'),more:$('moreBtn'),version:$('excelVersion'),toast:$('toast'),tool:$('toolPanel')};
   const CATS={전체:'▦','기본 계산':'∑','조건·조회':'⌕','문자·텍스트':'Aa','날짜·시간':'◷','데이터 정리':'≡','서식·표시':'◈','인쇄·차트':'▥','문제 해결':'!','업무 예시':'▤','함수 사전':'ƒx'};
   const EXAMPLE=['두 셀의 숫자 더하기','중복값 색깔로 찾기','한 장에 맞춰 인쇄하기','표에서 값 찾기 (VLOOKUP)','조건에 맞는 합계 (SUMIF)','날짜 입력과 표시 형식'];
   function localRead(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback;}catch{return fallback;}}
@@ -30,20 +36,24 @@
     const a=x.item;
     return `<button class="result-row" data-open="${safeAttr(a.id)}" type="button"><span class="item-emblem">${escapeHTML(a.kind==='function'?'ƒx':(CATS[a.category]||'✓'))}</span><span class="result-body"><span class="result-name">${escapeHTML(a.title)}</span><span class="result-desc">${escapeHTML(a.desc)}</span><span class="result-tags">${escapeHTML(a.kind==='function'?'함수 사전':a.category)}${a.kind==='function'&&!a.verified?' · 공식 문서 참조':''}</span></span><span class="result-arrow">↗</span></button>`;
   }
+  function colName(i){let out='';for(let n=i+1;n>0;n=Math.floor((n-1)/26))out=String.fromCharCode(65+(n-1)%26)+out;return out;}
   function visualExampleHTML(a){
-    const e=window.EXCEL_HELPER_VISUALS?.[a.id];
+    const e=engine.dynamicExample(state.query,a)||window.EXCEL_HELPER_VISUALS?.[a.id];
     if(!e)return '';
-    const header=(e.headers||[]).map(x=>`<th scope="col">${escapeHTML(x)}</th>`).join('');
-    const rows=(e.rows||[]).map(r=>`<tr>${r.map(v=>`<td>${escapeHTML(v)}</td>`).join('')}</tr>`).join('');
-    const formula=e.formula?`<div class="visual-formula"><span>적용 수식</span><code>${escapeHTML(e.formula)}</code><button type="button" class="copy-btn" data-copy="${safeAttr(e.formula)}">복사 ⧉</button></div>`:'';
-    const output=e.result?`<div class="visual-outcome"><strong>예상 결과</strong><span>${escapeHTML(e.result)}</span></div>`:'';
-    return `<section class="answer-section visual-section"><h4>실제로 적용하면 이렇게 됩니다</h4><p class="visual-lead">이해를 돕기 위한 가상 데이터 예시입니다.</p><div class="visual-scroll"><table class="example-table"><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table></div>${formula}${output}<p class="visual-explain">${escapeHTML(e.explain)}</p></section>`;
+    const headers=e.headers||[],rows=e.rows||[];
+    const count=Math.max(headers.length,...rows.map(r=>r.length),1);
+    const letterRow=Array.from({length:count},(_,i)=>`<th scope="col" class="excel-column">${colName(i)}</th>`).join('');
+    const headRow=Array.from({length:count},(_,i)=>`<th scope="col" class="excel-header">${escapeHTML(String(headers[i]||'').replace(/^[A-Z]{1,2}\s*\((.*?)\)$/, '$1')||'')}</th>`).join('');
+    const body=rows.map((r,i)=>`<tr><th scope="row" class="excel-row-index">${i+2}</th>${Array.from({length:count},(_,c)=>`<td>${escapeHTML(r[c]??'')}</td>`).join('')}</tr>`).join('');
+    const formula=e.formula?`<div class="visual-formula"><span>예시 수식</span><code>${escapeHTML(e.formula)}</code><button type="button" class="copy-btn" data-copy="${safeAttr(e.formula)}">복사 ⧉</button></div>`:'';
+    const result=e.result?`<div class="visual-outcome"><strong>예상 결과</strong><span>${escapeHTML(e.result)}</span></div>`:'';
+    return `<section class="answer-section visual-section"><h4>엑셀 예시: 열(A·B·C)과 행(1·2·3)을 보고 따라 해보세요</h4><p class="visual-lead">1행은 제목, 2행부터 데이터입니다. 실제 파일의 열 순서가 다르면 수식 주소도 바꾸세요. 아래 표는 가상의 예시입니다.</p><div class="visual-scroll"><table class="example-table excel-grid"><thead><tr><th class="excel-corner" aria-label="셀 위치"></th>${letterRow}</tr><tr><th scope="row" class="excel-row-index">1</th>${headRow}</tr></thead><tbody>${body}</tbody></table></div>${formula}${result}${e.explain?`<p class="visual-explain">${escapeHTML(e.explain)}</p>`:''}</section>`;
   }
   function detailHTML(a){
     let formula=engine.suggestedFormula(state.query,a);
     const bad=engine.isIncompatible(a.version,state.version);
     const source=sourceURL(a.source);
-    const examples=[...new Set([...(formula?[formula]:[]),...(a.examples||[])])];
+    const examples=formula?[formula]:[...new Set(a.examples||[])];
     const verified=a.kind==='function'?a.verified!==false:true;
     const stepHTML=(a.steps||[]).length?`<section class="answer-section"><h4>따라 하는 방법</h4><ol class="steps">${a.steps.map(s=>`<li>${escapeHTML(s)}</li>`).join('')}</ol></section>`:'';
     const examplesHTML=examples.length?`<section class="answer-section"><h4>${a.kind==='function'?'사용 예시':'예시 수식·입력값'}</h4>${examples.map(x=>`<div class="formula-row"><code>${escapeHTML(x)}</code><button type="button" class="copy-btn" data-copy="${safeAttr(x)}" aria-label="예시 복사">복사 ⧉</button></div>`).join('')}<p class="micro-note">예시의 셀 주소는 가상의 주소입니다. 실제 파일에 맞게 변경하세요.</p></section>`:'';
@@ -52,10 +62,11 @@
       ${verified?'':'<div class="warning subdued">이 함수는 이름만 색인에 등록돼 있습니다. 구문과 설명은 Microsoft 공식 문서에서 확인해 주세요.</div>'}
       <p class="answer-intro">${escapeHTML(a.desc)}</p>${stepHTML}${visualExampleHTML(a)}${examplesHTML}
       ${(a.tips||[]).length?`<section class="answer-section tip-section"><h4>알아두세요</h4>${a.tips.map(t=>`<p>• ${escapeHTML(t)}</p>`).join('')}</section>`:''}
-      <div class="answer-actions"><a href="${safeAttr(source)}" target="_blank" rel="noopener noreferrer" class="source-link">Microsoft 공식 도움말 ↗</a><button type="button" class="plain-action" data-copy-answer="${safeAttr(a.id)}">설명 복사</button><button type="button" class="plain-action" data-print="1">인쇄</button></div>`;
+      <div class="answer-actions"><a href="${safeAttr(source)}" target="_blank" rel="noopener noreferrer" class="source-link">Microsoft 공식 도움말 ↗</a><button type="button" class="plain-action" data-copy-answer="${safeAttr(a.id)}">설명 복사</button><button type="button" class="plain-action" data-print="1">인쇄</button><button type="button" class="plain-action" data-feedback="${safeAttr(a.id)}" data-val="yes">도움됐어요</button><button type="button" class="plain-action" data-feedback="${safeAttr(a.id)}" data-val="no">부족해요</button></div>`;
   }
   function notice(text,type='info') {el.notice.textContent=text;el.notice.hidden=!text;el.notice.className='notice '+type;}
   function render(){
+    el.tool.hidden=true;
     renderCats();
     el.more.hidden=true;
     const isQuery=!!state.query.trim();
@@ -104,6 +115,80 @@
     el.more.textContent=`더 많은 결과 보기 (${Math.min(results.count-limit,24)}개)`;
   }
   function exampleLinks(){return `<div class="empty"><div class="empty-symbol">⌕</div><h3>조금 더 구체적으로 물어보세요</h3><p>어떤 데이터를 어떤 모습으로 만들고 싶은지 알려주면 더 잘 찾습니다.</p><div class="empty-examples">${['A1이랑 B1을 더하려면?','글자 두 개 붙이는 방법은?','날짜를 연-월-일로 표시하는 법','직원별 지출 금액 합치기'].map(q=>`<button type="button" data-query="${safeAttr(q)}">${escapeHTML(q)}</button>`).join('')}</div></div>`;}
+  function showTool(title,body){
+    el.tool.hidden=false;el.tool.innerHTML='<h3>'+escapeHTML(title)+'</h3>'+body;
+    el.detail.hidden=true;el.list.innerHTML='';el.related.innerHTML='';el.more.hidden=true;
+    el.title.textContent=title;el.subtitle.textContent='이 도구는 AI 없이 현재 브라우저에서 작동합니다.';
+    el.tool.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function openBuilder(){
+    const cols=Array.from({length:12},(_,i)=>colName(i));
+    const opts=cols.map(c=>`<option value="${c}">${c}열</option>`).join('');
+    showTool('조건 수식 자동 만들기',`<p class="tool-intro">실제 엑셀 열 위치를 선택하면 두 조건을 만족하는 명단 조회 수식을 만들어 드립니다. 데이터를 서버로 보내지 않습니다.</p>
+      <div class="tool-fields"><label>데이터 마지막 행 <input id="fbEnd" type="number" min="2" max="1000000" value="100"></label>
+      <label>첫 번째 조건 열 <select id="fbCol1">${opts}</select></label><label>첫 번째 조건 값 <input id="fbVal1" maxlength="60" value="2005"></label>
+      <label>두 번째 조건 열 <select id="fbCol2">${opts}</select></label><label>두 번째 조건 값 <input id="fbVal2" maxlength="60" value="참여"></label>
+      <label>찾을 결과 <select id="fbType"><option value="list">조건에 맞는 명단</option><option value="count">조건에 맞는 사람 수</option></select></label></div>
+      <button type="button" class="action-primary" id="fbCreate">수식 만들기</button><div id="fbResult" class="tool-result"></div>
+      <p class="micro-note">가정: 1행은 제목, 데이터는 2행부터, 전체 표는 A열부터 D열까지입니다. 숫자는 숫자 조건으로 처리합니다. Microsoft 365 또는 Excel 2021 이상에서 FILTER를 사용할 수 있습니다.</p>`);
+    $('fbCol1').value='B';$('fbCol2').value='C';
+    $('fbCreate').addEventListener('click',()=>{
+      const end=Math.max(2,Math.min(1000000,Number($('fbEnd').value)||100));
+      const c1=$('fbCol1').value,c2=$('fbCol2').value;
+      const v1=$('fbVal1').value.trim(),v2=$('fbVal2').value.trim();
+      if(!v1||!v2){$('fbResult').textContent='두 조건 값을 입력하세요.';return;}
+      const cond=v=>/^[-+]?\d+(?:\.\d+)?$/.test(v)?v:'"'+v.replace(/"/g,'""')+'"';
+      const kind=$('fbType').value;
+      const formula=kind==='count'?`=COUNTIFS(${c1}2:${c1}${end},${cond(v1)},${c2}2:${c2}${end},${cond(v2)})`:`=FILTER(A2:D${end},(${c1}2:${c1}${end}=${cond(v1)})*(${c2}2:${c2}${end}=${cond(v2)}),"해당 없음")`;
+      $('fbResult').innerHTML=`<div class="formula-row"><code>${escapeHTML(formula)}</code><button type="button" class="copy-btn" data-copy="${safeAttr(formula)}">복사 ⧉</button></div><p class="micro-note">A:D 표 범위와 셀 주소가 실제 파일과 맞는지 확인하세요.</p>`;
+    });
+    $('fbCreate').click();
+  }
+  function parseDelimited(text){
+    const rows=[];let row=[],cell='',quote=false;const s=String(text).replace(/^\uFEFF/,'');
+    const delimiter=(s.split(/\r?\n/)[0]||'').includes('\t')?'\t':',';
+    for(let i=0;i<s.length&&rows.length<120;i++){
+      const ch=s[i];
+      if(ch==='"'){if(quote&&s[i+1]==='"'){cell+='"';i++;}else quote=!quote;}
+      else if(ch===delimiter&&!quote){row.push(cell);cell='';}
+      else if((ch==='\n'||ch==='\r')&&!quote){if(ch==='\r'&&s[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell='';}
+      else cell+=ch;
+    }
+    if(cell||row.length){row.push(cell);rows.push(row);}
+    return rows;
+  }
+  function openCSV(){
+    showTool('CSV·TSV 데이터 미리보기',`<p class="tool-intro">CSV 또는 탭으로 구분한 텍스트 파일을 이 브라우저 안에서만 읽어 미리 봅니다. Excel .xlsx 원본 파일은 지원하지 않습니다.</p><label class="file-input">CSV·TSV 파일 선택 <input id="localCSV" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain"></label><div id="csvPreview"></div><p class="micro-note">민감한 개인정보가 포함된 업무 파일은 이 사이트에서 취급하지 않는 것을 권장합니다. 파일 내용은 전송되지 않지만 PC의 다른 프로그램·확장 프로그램 보안은 별도로 관리해야 합니다.</p>`);
+    $('localCSV').addEventListener('change',async()=>{
+      const file=$('localCSV').files?.[0];if(!file)return;
+      if(file.size>2*1024*1024){$('csvPreview').textContent='2MB 이하의 CSV 파일만 미리 볼 수 있습니다.';return;}
+      let text;try{text=await file.text();}catch{$('csvPreview').textContent='파일을 읽을 수 없습니다.';return;}
+      let rows=parseDelimited(text).slice(0,25);if(!rows.length){$('csvPreview').textContent='표시할 데이터가 없습니다.';return;}
+      const columns=Math.min(15,Math.max(...rows.map(x=>x.length)));
+      const headers=Array.from({length:columns},(_,i)=>`<th scope="col" class="excel-column">${colName(i)}</th>`).join('');
+      const lines=rows.map((r,i)=>`<tr><th scope="row" class="excel-row-index">${i+1}</th>${Array.from({length:columns},(_,j)=>`<td>${escapeHTML(String(r[j]??'').slice(0,180))}</td>`).join('')}</tr>`).join('');
+      $('csvPreview').innerHTML=`<p class="tool-intro">미리보기: 최대 25행 · 15열 / 파일 크기 ${Math.round(file.size/1024)}KB</p><div class="visual-scroll"><table class="example-table excel-grid"><thead><tr><th class="excel-corner"></th>${headers}</tr></thead><tbody>${lines}</tbody></table></div><p class="micro-note">이 표에서 열 위치를 확인한 다음 '조건 수식 만들기'를 이용하세요. CSV 데이터는 실제 Excel에 적용·수정되지 않습니다.</p>`;
+    });
+  }
+  function downloadJSON(name,object){const blob=new Blob([JSON.stringify(object,null,2)],{type:'application/json;charset=utf-8'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);}
+  function openCustom(){
+    showTool('나만의 도움말 관리',`<p class="tool-intro">등록한 도움말은 <strong>현재 브라우저에만 저장</strong>됩니다. 다른 직원에게 공유하려면 내보낸 파일을 검토 후 GitHub에 별도로 반영해야 합니다.</p>
+      <div class="tool-fields"><label>도움말 제목 <input id="customTitle" maxlength="120" placeholder="예: 프로그램 참석자 명단 만들기"></label>
+      <label>관련 검색어(쉼표 구분) <input id="customKeys" maxlength="400" placeholder="참석자, 참여자, 명단"></label>
+      <label class="wide">답변 내용 <textarea id="customDesc" maxlength="2000" rows="4" placeholder="구체적인 해결 방법을 작성하세요."></textarea></label>
+      <label class="wide">예시 수식 (선택) <input id="customExample" maxlength="400" placeholder="=COUNTIF(B2:B100,\"참여\")"></label></div>
+      <div class="tool-buttons"><button id="customSave" type="button" class="action-primary">내 브라우저에 추가</button><button id="customExport" type="button" class="action-secondary">도움말 데이터 내보내기</button><button id="feedbackExport" type="button" class="action-secondary">평가 내역 내보내기</button></div><div id="customMsg" class="micro-note"></div>`);
+    $('customSave').addEventListener('click',()=>{
+      const title=$('customTitle').value.trim(),desc=$('customDesc').value.trim(),example=$('customExample').value.trim();
+      if(title.length<2||desc.length<5){$('customMsg').textContent='제목 2글자 이상, 답변 5글자 이상 입력하세요.';return;}
+      const id='local-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
+      const guide={id,kind:'guide',category:'업무 예시',title,keys:$('customKeys').value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,15),desc,steps:[],examples:example?[example]:[],tips:['이 브라우저에서 직접 작성한 도움말입니다. 내용을 확인하세요.'],source:'https://support.microsoft.com/ko-kr/excel/',version:'unknown',priority:1};
+      let existing=localRead(customStore,[]);existing=Array.isArray(existing)?existing.slice(-99):[];existing.push(guide);localWrite(customStore,existing);DB.guides.push(guide);ALL.push(guide);byId.set(id,guide);
+      $('customMsg').textContent='현재 브라우저에 등록했습니다. 검색할 수 있습니다. 다른 직원에게는 자동으로 공유되지 않습니다.';
+    });
+    $('customExport').addEventListener('click',()=>downloadJSON('excel-helper-custom-guides.json',localRead(customStore,[])));
+    $('feedbackExport').addEventListener('click',()=>downloadJSON('excel-helper-feedback.json',localRead(feedbackStore,[])));
+  }
   function applyQuery(value){state.query=String(value||'').slice(0,220);el.query.value=state.query;state.limit=12;state.selected=null;state.savedOnly=false;render();}
   async function copyText(str){
     try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(str);}else{
@@ -120,6 +205,12 @@
     if(btn.dataset.copyAnswer!==undefined){const a=byId.get(btn.dataset.copyAnswer);if(a)copyText([a.title,a.desc,...(a.steps||[]),...(a.examples||[]),...(a.tips||[])].join('\n'));return;}
     if(btn.dataset.save!==undefined){const id=btn.dataset.save;state.saved.has(id)?state.saved.delete(id):state.saved.add(id);localWrite('exh-saved',[...state.saved]);render();toast(state.saved.has(id)?'저장한 도움말에 추가했습니다.':'저장한 도움말에서 제거했습니다.');return;}
     if(btn.dataset.print!==undefined){window.print();return;}
+    if(btn.dataset.feedback!==undefined){
+      const records=localRead(feedbackStore,[]);
+      const list=Array.isArray(records)?records.slice(-199):[];
+      list.push({helpId:btn.dataset.feedback,useful:btn.dataset.val==='yes',date:new Date().toISOString().slice(0,10)});
+      localWrite(feedbackStore,list);toast('평가가 이 브라우저에 저장되었습니다. 관리자에게 자동 전송되지는 않습니다.');return;
+    }
   });
   el.form.addEventListener('submit',function(e){e.preventDefault();applyQuery(el.query.value);$('results-area').scrollIntoView({behavior:'smooth',block:'start'});});
   let timer;
@@ -127,6 +218,9 @@
   el.version.addEventListener('change',function(){state.version=el.version.value;localWrite('exh-version',state.version);render();});
   $('themeBtn').addEventListener('click',function(){state.theme=state.theme==='dark'?'light':'dark';localWrite('exh-theme',state.theme);theme();});
   $('showSaved').addEventListener('click',function(){state.savedOnly=true;state.category='전체';state.selected=null;state.query='';el.query.value='';state.limit=12;render();});
+  $('openFormulaBuilder').addEventListener('click',openBuilder);
+  $('openCSV').addEventListener('click',openCSV);
+  $('openCustom').addEventListener('click',openCustom);
   $('openDictionary').addEventListener('click',function(){state.category='함수 사전';state.savedOnly=false;state.selected=null;state.query='';el.query.value='';state.limit=12;render();$('results-area').scrollIntoView({behavior:'smooth',block:'start'});});
   el.more.addEventListener('click',function(){state.limit+=24;render();});
   document.addEventListener('keydown',function(e){if(e.key==='/'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)&&!e.metaKey&&!e.ctrlKey){e.preventDefault();el.query.focus();}});

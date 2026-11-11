@@ -44,6 +44,7 @@
           <button type="button" data-query="중복된 이름만 색칠하려면?">중복값 찾기</button>
           <button type="button" data-query="숫자를 1,000원처럼 나타내려면?">숫자 서식</button>
           <button type="button" data-query="VLOOKUP 함수 알려줘">VLOOKUP</button>
+          <button type="button" data-query="2003년생 중에서 미참여한 사람 찾기">복합 조건 검색</button>
         </div>
       </div>
     </section>
@@ -53,6 +54,10 @@
         <div class="sidebar-panel">
           <div class="section-label">찾아보기</div>
           <nav class="categories" id="categories" aria-label="도움말 카테고리"></nav>
+          <div class="sidebar-divider"></div>
+          <button class="sidebar-special" id="openFormulaBuilder" type="button"><span aria-hidden="true">∑</span> 조건 수식 만들기</button>
+          <button class="sidebar-special" id="openCSV" type="button"><span aria-hidden="true">▦</span> CSV 데이터 미리보기</button>
+          <button class="sidebar-special" id="openCustom" type="button"><span aria-hidden="true">＋</span> 내 도움말 추가</button>
           <div class="sidebar-divider"></div>
           <button class="sidebar-special" id="showSaved" type="button"><span aria-hidden="true">☆</span> 저장한 도움말 <span id="savedCount" class="small-count">0</span></button>
         </div>
@@ -71,6 +76,7 @@
         <div id="notice" class="notice" hidden></div>
         <div id="resultList" class="result-list"></div>
         <div id="detail" class="answer-card" hidden></div>
+        <div id="toolPanel" class="answer-card tool-panel" hidden></div>
         <div id="related" class="related"></div>
         <button id="moreBtn" class="more-button" type="button" hidden>더 많은 결과 보기</button>
       </section>
@@ -94,7 +100,7 @@
       <div class="about-stats"><div><strong id="guideCount">-</strong><span>실무 도움말</span></div><div><strong id="verifiedCount">-</strong><span>예시가 있는 함수</span></div><div><strong id="allCount">-</strong><span>함수명 색인</span></div></div>
     </section>
   </main>
-  <footer class="footer"><span>© 2026 Excel Helper · v<span id="appVersion">1.0.0</span></span><span>독립적인 비공식 도움말 · Microsoft 및 Excel은 각 소유자의 상표입니다.</span><a href="https://support.microsoft.com/ko-kr/excel/excel-functions-alphabetical" target="_blank" rel="noopener noreferrer">Microsoft 공식 함수 목록 ↗</a></footer>
+  <footer class="footer"><span>© 2026 Excel Helper · v<span id="appVersion">1.2.0</span></span><span>독립적인 비공식 도움말 · Microsoft 및 Excel은 각 소유자의 상표입니다.</span><a href="https://support.microsoft.com/ko-kr/excel/excel-functions-alphabetical" target="_blank" rel="noopener noreferrer">Microsoft 공식 함수 목록 ↗</a></footer>
   <div role="status" id="toast" class="toast" aria-live="polite"></div>
   <script src="data.js"></script>
   <script src="search-core.js"></script>

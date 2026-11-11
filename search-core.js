@@ -87,7 +87,17 @@
       if (has('지우','삭제','제거','없애')) explicit('g080');
       else if (has('찾아','찾기','찾는','표시','색','겹치','확인','구분')) explicit('g079');
     }
-    if (has('년생','출생연도','출생년도','태어난년도') && has('참여','참석','참가','출석')) explicit('g143');
+    if (has('년생','출생연도','출생년도','태어난년도') && has('참여','참석','참가','출석','미참여','불참','결석')) {
+      if (has('몇명','인원수','몇사람','몇건','몇개','세기','개수')) explicit('g015');
+      else explicit('g143');
+    }
+    if (has('남자','여자','남성','여성','성별') && has('참여','참석','미참여','불참','결석')) explicit('g144');
+    if (has('점수','성적','시험') && has('이상','초과','미만','이하') && has('사람','이름','명단','추출','찾아')) explicit('g145');
+    if (has('참여횟수','참석횟수','이용횟수','출석횟수') && has('이상','넘는','이하','초과')) {
+      if (/(?:19|20)\d{2}년/.test(sq) && has('참여','참석','출석','이용')) explicit('g148');
+      else explicit('g146');
+    }
+    if (has('오타','맞춤법','비슷한단어','비슷한말')) explicit('g147');
     if (has('몇퍼센트','백분율','비율','퍼센트','%')) explicit('g007');
     if (has('빼기','뺄셈','차액','마이너스') && !has('날짜')) explicit('g003');
     if (has('곱하기','곱셈','곱해')) explicit('g004');
@@ -180,11 +190,69 @@
     if (qtokens.length>=3 && max<110 && !intent.hints.length) confidence='low';
     return {results:ranked.slice(0,limit),count:ranked.length,intent,confidence};
   }
-  function suggestedFormula(question,item) {
-    if (!item || item.id!=='g001')return null;
+  function interpretConditions(question){
+    const q=String(question||'').normalize('NFKC');
+    const yearMatch=q.match(/(?:19|20)\d{2}(?=년생|\s*년\s*출생|\s*출생)/) || q.match(/(?:19|20)\d{2}(?=년생)/);
+    const bornYear=yearMatch ? Number(yearMatch[0]) : null;
+    // '미참여'에는 '참여'가 들어 있으므로 부정 상태를 우선 판별한다.
+    const status= /미참여|불참|결석|미출석/.test(q) ? '미참여' : /참석|참여|출석|참가/.test(q) ? '참여' : null;
+    const eventYearMatch=q.match(/((?:19|20)\d{2})\s*년에?(?:\s|$|[^가-힣])/);
+    const eventYear=eventYearMatch?Number(eventYearMatch[1]):null;
+    const gender=/여자|여성/.test(q)?'여':/남자|남성/.test(q)?'남':null;
+    const threshold=q.match(/(\d+(?:\.\d+)?)\s*(?:점|회|번)?\s*(이상|초과|이하|미만)/);
+    return {bornYear,eventYear,status,gender,threshold:threshold?Number(threshold[1]):null,operator:threshold?({'이상':'>=','초과':'>','이하':'<=','미만':'<'}[threshold[2]]):null};
+  }
+  function suggestedFormula(question,item){
+    if(!item)return null;
     const refs=refContexts(question);
-    if (refs.length>=2 && /더|합|플러스|덧셈/.test(question)) return '='+refs[0]+'+'+refs[1];
+    if(item.id==='g001'&&refs.length>=2&&/더|합|플러스|덧셈/.test(question))return '='+refs[0]+'+'+refs[1];
+    const c=interpretConditions(question);
+    if(item.id==='g143' && c.bornYear && c.status)
+      return '=FILTER(A2:C100,(B2:B100='+c.bornYear+')*(C2:C100="'+c.status+'"),"해당 없음")';
+    if(item.id==='g015' && c.bornYear && c.status)
+      return '=COUNTIFS(B2:B100,'+c.bornYear+',C2:C100,"'+c.status+'")';
+    if(item.id==='g144' && c.gender && c.status)
+      return '=FILTER(A2:C100,(B2:B100="'+c.gender+'")*(C2:C100="'+c.status+'"),"해당 없음")';
+    if(item.id==='g145' && c.threshold!==null)
+      return '=FILTER(A2:B100,B2:B100'+c.operator+c.threshold+',"해당 없음")';
+    if(item.id==='g146' && c.threshold!==null)
+      return '=FILTER(A2:B100,B2:B100'+c.operator+c.threshold+',"해당 없음")';
+    if(item.id==='g148' && c.threshold!==null && c.eventYear && c.status)
+      return '=FILTER(A2:D100,(B2:B100='+c.eventYear+')*(C2:C100'+c.operator+c.threshold+')*(D2:D100="'+c.status+'"),"해당 없음")';
     return null;
   }
-  return {search,normalize,tokens,classify,scoreEntry,refContexts,suggestedFormula,isIncompatible};
+  function dynamicExample(question,item){
+    if(!item)return null;
+    const c=interpretConditions(question);
+    if(item.id==='g143' && c.bornYear && c.status){
+      const other=c.bornYear===2005?2004:2005;
+      const rows=[['김철수',String(c.bornYear),c.status],['이영희',String(other),'참여'],['박민수',String(c.bornYear),c.status==='참여'?'미참여':'참여'],['최지은',String(c.bornYear),c.status]];
+      return {headers:['이름','출생연도','참여여부'],rows,formula:'=FILTER(A2:C5,(B2:B5='+c.bornYear+')*(C2:C5="'+c.status+'"),"해당 없음")',result:'김철수, 최지은',explain:'예시 데이터에서 '+c.bornYear+'년생이면서 '+c.status+' 상태인 사람만 찾습니다. B열이 숫자 출생연도이고 C열에 실제로 "'+c.status+'"라고 적혀 있다고 가정합니다.'};
+    }
+    if(item.id==='g015' && c.bornYear && c.status){
+      const base=dynamicExample(question,{id:'g143'});
+      return {...base,formula:'=COUNTIFS(B2:B5,'+c.bornYear+',C2:C5,"'+c.status+'")',result:'2명',explain:'조건에 맞는 사람의 수를 세는 예시입니다. 명단이 필요하면 FILTER를 사용하세요.'};
+    }
+    if(item.id==='g144' && c.gender && c.status){
+      return {headers:['이름','성별','참여여부'],rows:[['김철수','남',c.status],['이영희','여','참여'],['박민수',c.gender,c.status],['최지은','여','미참여']],formula:'=FILTER(A2:C5,(B2:B5="'+c.gender+'")*(C2:C5="'+c.status+'"),"해당 없음")',result:c.gender==='여' && c.status==='참여'?'이영희, 박민수':c.gender==='여'?'박민수, 최지은':'김철수, 박민수',explain:'예시는 성별 열에 남/여, 참여여부 열에 참여/미참여라고 적힌 경우에 한합니다.'};
+    }
+    if(item.id==='g148' && c.threshold!==null && c.eventYear && c.status){
+      const other=c.eventYear===2025?2024:2025;
+      const rows=[['김철수',String(c.eventYear),String(c.threshold),c.status],['이영희',String(other),String(c.threshold+5),c.status],['박민수',String(c.eventYear),String(Math.max(0,c.threshold-1)),c.status],['최지은',String(c.eventYear),String(c.threshold+4),c.status]];
+      const op=x=>({'=':x===c.threshold,'>=':x>=c.threshold,'>':x>c.threshold,'<=':x<=c.threshold,'<':x<c.threshold}[c.operator]);
+      const names=rows.filter(r=>Number(r[1])===c.eventYear&&op(Number(r[2]))&&r[3]===c.status).map(r=>r[0]);
+      return {headers:['이름','참여연도','이용횟수','참여여부'],rows,formula:'=FILTER(A2:D5,(B2:B5='+c.eventYear+')*(C2:C5'+c.operator+c.threshold+')*(D2:D5="'+c.status+'"),"해당 없음")',result:names.join(', ')||'해당 없음',explain:'B열은 참여연도(숫자), C열은 이용횟수(숫자), D열은 참여여부(참여/미참여)인 예시입니다. 실제 파일의 열 배치가 다르면 주소를 바꿔야 합니다.'};
+    }
+    if(['g145','g146'].includes(item.id) && c.threshold!==null){
+      const freq=item.id==='g146',unit=freq?'회':'점';
+      let a=c.threshold + (c.operator==='>'?1:0),b=c.threshold-1,cc=c.threshold+10;
+      if(c.operator==='<='||c.operator==='<') {a=c.threshold-(c.operator==='<'?1:0);b=c.threshold+1;cc=c.threshold-3;}
+      const match=x=>({'=':x===c.threshold,'>=':x>=c.threshold,'>':x>c.threshold,'<=':x<=c.threshold,'<':x<c.threshold}[c.operator]);
+      const rows=[['김철수',String(a)],['이영희',String(b)],['최지은',String(cc)]];
+      const out=rows.filter(r=>match(Number(r[1]))).map(r=>r[0]).join(', ')||'해당 없음';
+      return {headers:['이름',freq?'참여횟수':'점수'],rows,formula:'=FILTER(A2:B4,B2:B4'+c.operator+c.threshold+',"해당 없음")',result:out,explain:'수치가 숫자로 입력되어 있다고 가정합니다. '+unit+' 기준 '+c.operator+c.threshold+' 조건을 적용한 가상 예시입니다.'};
+    }
+    return null;
+  }
+  return {search,normalize,tokens,classify,scoreEntry,refContexts,suggestedFormula,interpretConditions,dynamicExample,isIncompatible};
 });
