@@ -1,6 +1,7 @@
 (function() {
   'use strict';
   const DB=window.EXCEL_HELPER_DATA;
+  if(!DB || !Array.isArray(DB.guides) || !Array.isArray(DB.functions)) { document.body.textContent='도움말 파일을 불러올 수 없습니다. 파일 구성을 확인해 주세요.'; return; }
   const customStore='exh-custom-v12', feedbackStore='exh-feedback-v12';
   // Added entries live in this browser only until exported and deployed by an administrator.
   try {
@@ -114,7 +115,8 @@
       notice('원하는 결과 모양이나 셀 주소가 빠져 있어 정확한 방법을 고르기 어렵습니다. 예: “A1과 B1을 더하고 싶어”, “날짜를 2026-11-11 형태로 보이고 싶어”','warning');
       el.list.innerHTML=exampleLinks();el.detail.hidden=true;el.related.innerHTML='';return;
     }
-    if (isQuery && results.confidence==='low') notice('질문에 정확히 맞는 답을 확신하기 어려워 연관된 항목을 보여드립니다. 제목과 예시를 확인해 주세요.','warning');
+    if (isQuery && results.confidence==='ambiguous') notice('「합치기」는 숫자 더하기, 글자 이어 붙이기, 셀 병합 중 어떤 작업인지에 따라 방법이 달라집니다. 아래에서 원하는 작업을 선택해 주세요.','warning');
+    else if (isQuery && results.confidence==='low') notice('질문에 정확히 맞는 답을 확신하기 어려워 연관된 항목을 보여드립니다. 제목과 예시를 확인해 주세요.','warning');
     else if (isQuery&&!results.count)notice('아직 등록된 해결법이 없습니다. 다른 표현으로 다시 검색하거나 Microsoft 공식 도움말을 확인해 주세요.','warning');
     else notice('');
 
@@ -127,7 +129,7 @@
     const limit=state.limit;
     const items=results.results.slice(0,limit);
     let selected=state.selected&&byId.has(state.selected)?byId.get(state.selected):null;
-    if (!selected && isQuery && results.confidence!=='low') selected=items[0]?.item;
+    if (!selected && isQuery && !['low','ambiguous'].includes(results.confidence)) selected=items[0]?.item;
     if (!selected && !isQuery) selected=null;
     if (selected){
       state.selected=selected.id;
